@@ -1,95 +1,78 @@
 # Tài liệu Thiết kế Hệ thống
 
 ## 1. Tổng quan Kiến trúc
-Dự án này là một hệ thống e-commerce Flash Sale chịu tải cao được xây dựng với:
-- **Frontend**: Next.js 14 (App Router) với `shadcn/ui` và WebSocket client.
-- **Backend**: NestJS với TypeORM, xử lý logic nghiệp vụ và WebSocket gateway.
-- **Database**: PostgreSQL để lưu trữ dữ liệu bền vững.
-- **Realtime**: Socket.IO để phát các cập nhật tồn kho và sự kiện đơn hàng.
+Hệ thống Flash Sale được xây dựng theo mô hình Client-Server tách biệt, kết nối qua REST API và WebSocket.
 
 ### Sơ đồ Thành phần
 ```mermaid
 graph TD
-    Client[Next.js Client] <-->|HTTP/REST| API[NestJS API]
-    Client <-->|WebSocket| Gateway[Socket.IO Gateway]
+    Client[Next.js Client] <-->|HTTP REST| API[NestJS API]
+    Client <-->|Socket.IO| Gateway[WebSocket Gateway]
     API -->|TypeORM| DB[(PostgreSQL)]
     API --> Gateway
 ```
 
----
-
-## 2. Kiểm soát Đồng thời (Chống Oversell)
-Để ngăn chặn bán quá số lượng (overselling) trong các đợt flash sale, chúng tôi sử dụng **Pessimistic Locking** (`SELECT ... FOR UPDATE`) ở cấp cơ sở dữ liệu.
-
-### Cơ chế
-1. **Bắt đầu Giao dịch (Transaction Start)**: Một DB transaction được khởi tạo.
-2. **Khóa (Locking)**: Khi giữ chỗ (reserve) sản phẩm, chúng tôi lấy entity `Product` với khóa pessimistic write:
-   ```typescript
-   manager.findOne(Product, {
-       where: { id: itemDto.productId },
-       lock: { mode: 'pessimistic_write' }
-   });
-   ```
-3. **Kiểm tra (Validation)**: Kiểm tra xem `availableStock >= requestedQuantity`.
-4. **Cập nhật (Update)**: Giảm `availableStock` và tăng `reservedStock`.
-5. **Commit**: Lưu các thay đổi và commit transaction.
-6. **Giải phóng (Release)**: Khóa chỉ được giải phóng sau khi transaction commit hoặc rollback.
-
-Điều này đảm bảo rằng các yêu cầu đồng thời cho cùng một sản phẩm được database xử lý tuần tự, đảm bảo cập nhật tồn kho nguyên tử (atomic).
+*   **Next.js Client**: Render giao diện, gọi API lấy dữ liệu tĩnh, lắng nghe Socket sự kiện động.
+*   **NestJS API**: Xử lý logic nghiệp vụ, transaction, locking (chống race condition).
+*   **PostgreSQL**: Lưu trữ dữ liệu, thực hiện khóa dòng (Row-level Locking) để đảm bảo toàn vẹn dữ liệu.
 
 ---
 
-## 3. Máy Trạng thái (State Machine) Giữ chỗ & Đơn hàng
+## 2. Kiểm soát Đồng thời (Concurrency Control)
+Vấn đề cốt lõi của Flash Sale là **Race Condition** (Điều kiện đua) khi hàng nghìn người cùng mua một sản phẩm.
 
-### Thực thể (Entities)
-- **Reservation**: Giữ tồn kho tạm thời.
-- **Order**: Được tạo từ một reservation hợp lệ.
+### Giải pháp: Pessimistic Locking
+Chúng tôi sử dụng **Pessimistic Write Lock** (`FOR UPDATE`) của PostgreSQL.
 
-### Trạng thái Reservation
-- `ACTIVE`: Tồn kho đang được giữ (`reservedStock`).
-- `COMPLETED`: Đã chuyển đổi thành Order.
-- `EXPIRED`: Quá thời gian TTL, tồn kho được trả lại `availableStock`.
-- `CANCELLED`: Người dùng hủy thủ công.
+### Luồng xử lý chi tiết (Flow)
+Khi user gọi API `createReservation`:
+1.  **Start Transaction**: Mở transaction mới.
+2.  **Lock & Read**: Đọc thông tin sản phẩm và KHÓA dòng đó lại.
+    ```sql
+    SELECT * FROM product WHERE id = 1 FOR UPDATE;
+    ```
+    *Các request khác muốn đọc dòng này sẽ phải CHỜ (Wait) đến khi transaction này xong.*
+3.  **Validate**: Kiểm tra `availableStock >= requestedQty`. Nếu không đủ -> Rollback & Error.
+4.  **Update**: Trừ `availableStock`, tăng `reservedStock`.
+5.  **Commit**: Lưu xuống DB và giải phóng khóa.
 
-### Trạng thái Order
-- `PENDING_PAYMENT`: Đã tạo, chờ thanh toán.
-- `PAID`: Thanh toán thành công (`reservedStock` -> `soldStock`).
-- `EXPIRED`: Quá thời gian thanh toán TTL, tồn kho được trả lại.
-- `CANCELLED`: Admin/Người dùng hủy, tồn kho được trả lại.
+-> **Kết quả**: Đảm bảo 100% không bao giờ bán quá số lượng kho, dù lượng request lớn đến đâu.
 
-### Sơ đồ Chuyển đổi Trạng thái
+---
+
+## 3. Quản lý Trạng thái (State Management)
+
+### Vòng đời Đơn hàng
+1.  **Reservation (Giữ chỗ)**:
+    *   Tồn tại trong 10 phút (TTL).
+    *   Nếu user không mua -> Tự động hết hạn (Cronjob quét mỗi phút) -> Trả lại kho (`Release Stock`).
+2.  **Order (Đơn hàng)**:
+    *   Tạo từ Reservation đang `Active`.
+    *   Trạng thái: `PENDING_PAYMENT` -> `PAID` (Thành công) hoặc `EXPIRED` (Hết hạn thanh toán).
+
+### Sơ đồ Trạng thái
 ```mermaid
 stateDiagram-v2
-    [*] --> Reservation_ACTIVE: Create Reservation (TTL 10m)
+    [*] --> ActiveReservation: User Giữ Hàng
+    ActiveReservation --> ExpiredReservation: Quá 10 phút (Cronjob)
+    ActiveReservation --> PendingOrder: User tạo Đơn
     
-    Reservation_ACTIVE --> Reservation_EXPIRED: TTL reached
-    Reservation_ACTIVE --> Reservation_COMPLETED: Create Order
+    PendingOrder --> PaidOrder: Thanh toán xong
+    PendingOrder --> ExpiredOrder: Quá 5 phút
     
-    Reservation_COMPLETED --> PENDING_PAYMENT: Order Created (TTL 5m)
-    
-    PENDING_PAYMENT --> PAID: Pay Success
-    PENDING_PAYMENT --> Order_EXPIRED: Payment TTL reached
-    PENDING_PAYMENT --> Order_CANCELLED: Manual Cancel
-    
-    Paid --> [*]
-    Reservation_EXPIRED --> [*]
-    Order_EXPIRED --> [*]
+    ExpiredReservation --> [*]: Trả kho
+    PaidOrder --> [*]: Chốt đơn
+    ExpiredOrder --> [*]: Trả kho
 ```
 
 ---
 
-## 4. Triển khai Tính Idempotency
-Các thao tác quan trọng hỗ trợ tính idempotency bằng cách sử dụng `idempotencyKey` được gửi từ client.
-- **Create Reservation**: Kiểm tra xem `idempotencyKey` có tồn tại trong bảng `Reservation` không. Nếu có, trả về reservation hiện có.
-- **Create Order**: Kiểm tra xem `idempotencyKey` có tồn tại trong bảng `Order` không.
-- **Pay Order**: Kiểm tra xem `paymentId` (được sử dụng làm key) có tồn tại không.
+## 4. Realtime Strategy
+Thay vì để Client liên tục gọi API (Polling) gây tải server, hệ thống dùng **Socket.IO** để đẩy dữ liệu (Push):
+*   Khi Backend thay đổi tồn kho (sau transaction thành công) -> Emit event `stock_updated`.
+*   Client nhận event -> Cập nhật số hiển thị ngay lập tức (không cần reload trang).
 
----
-
-## 5. Sự kiện Realtime
-Socket.IO được sử dụng để phát các sự kiện tới các client đang kết nối:
-- `stock_updated`: Gửi khi tồn kho thay đổi (giữ chỗ, hết hạn, thanh toán).
-- `reservation_created`, `reservation_expired`: Cho việc giám sát của admin.
-- `order_created`, `order_paid`: Cho việc giám sát của admin.
-
-Frontend lắng nghe các sự kiện này để cập nhật giao diện ngay lập tức mà không cần refresh thủ công.
+Các sự kiện chính:
+*   `stock_updated`: Cập nhật tồn kho real-time.
+*   `order_created`: Báo admin có đơn mới.
+*   `order_paid`: Báo admin đơn đã thanh toán.
