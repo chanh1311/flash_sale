@@ -87,7 +87,8 @@ Thay vì để Client liên tục gọi API (Polling) gây tải server, hệ th
     - Nếu chưa tồn tại -> Xử lý và lưu key.
 
 ## 6. Chiến lược Database & Redis
-Theo yêu cầu, Redis là tùy chọn. Trong phạm vi dự án này, chúng tôi quyết định **KHÔNG sử dụng Redis** vì:
+Trong phạm vi dự án này, tôi quyết định **KHÔNG sử dụng Redis** vì:
 1.  **Đơn giản hóa kiến trúc**: Giảm bớt dependencies giúp việc setup và chạy test dễ dàng hơn (chỉ cần Docker Postgres).
 2.  **Độ tin cậy của PostgreSQL**: Với bài toán Flash Sale quy mô nhỏ/trung bình (test), việc dùng `SELECT ... FOR UPDATE` của Postgres đủ nhanh và đảm bảo tính nhất quán dữ liệu (Strong Consistency) tốt hơn so với việc đồng bộ cache Redis - DB.
 3.  **Quản lý State**: Trạng thái Reservation (Giữ chỗ) được lưu trực tiếp trong DB (bảng `reservation`) cho phép truy vết và Audit Log dễ dàng, không sợ mất dữ liệu khi Redis sập.
+4. **realtime**: Tôi đang chạy 1 Server duy nhất, nên việc lưu trữ kết nối Real-time ngay trên RAM của Server, không cần dùng redis làm trung gian.(sử dụng In-Memory Adapter của Socket.IO)
