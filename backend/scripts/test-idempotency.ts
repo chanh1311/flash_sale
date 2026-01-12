@@ -40,7 +40,6 @@ async function runTest() {
         console.log('\n--- VERIFICATION ---');
         if (res1.data.id === res2.data.id) {
             console.log('SUCCESS: Both responses returned the SAME reservation ID.');
-            console.log('=> System is IDEMPOTENT.');
         } else {
             console.error('FAILED: System created DUPLICATE reservations. Idempotency broken.');
         }

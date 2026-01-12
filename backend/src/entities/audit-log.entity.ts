@@ -28,7 +28,7 @@ export class AuditLog {
     @Column({ nullable: true })
     note: string;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamptz' })
     createdAt: Date;
 }
 

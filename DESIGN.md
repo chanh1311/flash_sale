@@ -72,7 +72,22 @@ Thay vì để Client liên tục gọi API (Polling) gây tải server, hệ th
 *   Khi Backend thay đổi tồn kho (sau transaction thành công) -> Emit event `stock_updated`.
 *   Client nhận event -> Cập nhật số hiển thị ngay lập tức (không cần reload trang).
 
-Các sự kiện chính:
+### Các sự kiện chính:
 *   `stock_updated`: Cập nhật tồn kho real-time.
 *   `order_created`: Báo admin có đơn mới.
 *   `order_paid`: Báo admin đơn đã thanh toán.
+
+---
+
+## 5. Idempotency (Chống trùng lặp)
+Để đảm bảo an toàn giao dịch (ví dụ: user bấm nút mua 2 lần), hệ thống sử dụng **Idempotency Key**:
+- Client sinh một `key` unique (UUID) cho mỗi hành động mua hàng.
+- Server kiểm tra `key` này trong database:
+    - Nếu đã tồn tại -> Trả về kết quả cũ (Thành công/Thất bại) mà không xử lý lại.
+    - Nếu chưa tồn tại -> Xử lý và lưu key.
+
+## 6. Chiến lược Database & Redis
+Theo yêu cầu, Redis là tùy chọn. Trong phạm vi dự án này, chúng tôi quyết định **KHÔNG sử dụng Redis** vì:
+1.  **Đơn giản hóa kiến trúc**: Giảm bớt dependencies giúp việc setup và chạy test dễ dàng hơn (chỉ cần Docker Postgres).
+2.  **Độ tin cậy của PostgreSQL**: Với bài toán Flash Sale quy mô nhỏ/trung bình (test), việc dùng `SELECT ... FOR UPDATE` của Postgres đủ nhanh và đảm bảo tính nhất quán dữ liệu (Strong Consistency) tốt hơn so với việc đồng bộ cache Redis - DB.
+3.  **Quản lý State**: Trạng thái Reservation (Giữ chỗ) được lưu trực tiếp trong DB (bảng `reservation`) cho phép truy vết và Audit Log dễ dàng, không sợ mất dữ liệu khi Redis sập.

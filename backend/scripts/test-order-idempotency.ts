@@ -70,7 +70,6 @@ async function runTest() {
         console.log('--- VERIFICATION ---');
         if (order1.data.id === order2.data.id) {
             console.log('SUCCESS: Both responses returned the SAME Order ID.');
-            console.log('=> createOrder is IDEMPOTENT.\n');
         } else {
             console.error('FAILED: System created DUPLICATE orders. Idempotency broken.\n');
             return;

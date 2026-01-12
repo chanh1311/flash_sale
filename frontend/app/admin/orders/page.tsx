@@ -43,7 +43,7 @@ export default function AdminOrdersPage() {
             const response = await api.get<Order[]>(endpoint);
             setOrders(response.data);
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Không thể tải danh sách orders');
+            setError(err.response?.data?.message || 'Không thể tải danh sách đơn hàng');
         } finally {
             setIsLoading(false);
         }
@@ -75,7 +75,7 @@ export default function AdminOrdersPage() {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Orders ({orders.length})
+                    Quản lý Đơn hàng ({orders.length})
                 </h1>
 
                 <div className="flex items-center gap-4">
@@ -92,30 +92,28 @@ export default function AdminOrdersPage() {
                         ))}
                     </select>
 
-                    <Button variant="outline" onClick={fetchOrders}>
-                        Refresh
-                    </Button>
+
                 </div>
             </div>
 
             {orders.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">Không có order nào</div>
+                <div className="text-center py-12 text-gray-500">Không có đơn hàng nào</div>
             ) : (
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
                     <table className="w-full">
                         <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
                             <tr>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                    ID
+                                    Mã đơn
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                    User ID
+                                    Người dùng
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                     Tổng tiền
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                    Status
+                                    Trạng thái
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                     Ngày tạo

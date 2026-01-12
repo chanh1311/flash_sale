@@ -1,5 +1,7 @@
 'use client';
 
+import { toast } from 'sonner';
+
 import Image from 'next/image';
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -64,7 +66,15 @@ export default function ProductDetailPage() {
     );
 
     // Handle add to cart
+    // Handle add to cart (Stay on page)
     const handleAddToCart = useCallback(() => {
+        if (!product) return;
+        addItem(product, quantity);
+        toast.success(`Đã thêm ${quantity} sản phẩm vào giỏ hàng`);
+    }, [product, quantity, addItem]);
+
+    // Handle buy now (Redirect to cart)
+    const handleBuyNow = useCallback(() => {
         if (!product) return;
         addItem(product, quantity);
         router.push('/cart');
@@ -161,15 +171,26 @@ export default function ProductDetailPage() {
                         </span>
                     </div>
 
-                    {/* Add to Cart Button */}
-                    <Button
-                        size="lg"
-                        className="w-full"
-                        disabled={!canAddToCart}
-                        onClick={handleAddToCart}
-                    >
-                        {product.availableStock <= 0 ? 'Hết hàng' : 'Thêm vào giỏ hàng'}
-                    </Button>
+                    {/* Buttons: Buy Now & Add to Cart */}
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                        <Button
+                            size="lg"
+                            variant="secondary"
+                            className="flex-1"
+                            disabled={!canAddToCart}
+                            onClick={handleAddToCart}
+                        >
+                            Thêm vào giỏ hàng
+                        </Button>
+                        <Button
+                            size="lg"
+                            className="flex-1"
+                            disabled={!canAddToCart}
+                            onClick={handleBuyNow}
+                        >
+                            {product.availableStock <= 0 ? 'Hết hàng' : 'Mua ngay'}
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>

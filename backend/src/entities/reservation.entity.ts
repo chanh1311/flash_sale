@@ -18,7 +18,7 @@ export class Reservation {
     @Column({ type: 'enum', enum: ReservationStatus, default: ReservationStatus.ACTIVE })
     status: ReservationStatus;
 
-    @Column()
+    @Column({ type: 'timestamptz' })
     expiresAt: Date;
 
     @OneToMany(() => ReservationItem, (item) => item.reservation, { cascade: true })
@@ -27,6 +27,6 @@ export class Reservation {
     @Column({ unique: true, nullable: true })
     idempotencyKey?: string;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamptz' })
     createdAt: Date;
 }

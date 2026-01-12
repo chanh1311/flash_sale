@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
 import { Reservation } from './reservation.entity';
 import { Product } from './product.entity';
 
@@ -15,4 +15,8 @@ export class ReservationItem {
 
     @ManyToOne(() => Reservation, (reservation) => reservation.items)
     reservation: Reservation;
+
+    @ManyToOne(() => Product)
+    @JoinColumn({ name: 'productId' })
+    product: Product;
 }

@@ -8,7 +8,7 @@ import { getSocket, connectSocket } from '@/lib/socket';
 import { formatCurrency, formatRemainingTime, isExpired } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button, Badge, PageSpinner } from '@/components/ui';
-import type { Reservation, Order, OrderStatus } from '@/types';
+import type { Reservation, Order, OrderStatus, ReservationStatus } from '@/types';
 
 // Generate UUID cho idempotency key
 function generateUUID(): string {
@@ -65,6 +65,29 @@ function OrderStatusBadge({ status }: { status: OrderStatus }) {
     return <Badge variant={variants[status]}>{labels[status]}</Badge>;
 }
 
+function ReservationStatusBadge({ status }: { status: ReservationStatus }) {
+    const variants: Record<ReservationStatus, 'warning' | 'success' | 'danger' | 'default'> = {
+        ACTIVE: 'warning',
+        COMPLETED: 'success',
+        CANCELLED: 'danger',
+        EXPIRED: 'default',
+    };
+
+    const labels: Record<ReservationStatus, string> = {
+        ACTIVE: 'Đang giữ',
+        COMPLETED: 'Đã hoàn thành',
+        CANCELLED: 'Đã hủy',
+        EXPIRED: 'Hết hạn',
+    };
+
+    return <Badge variant={variants[status]}>{labels[status]}</Badge>;
+}
+
+// Extended type for reservation with order
+interface ReservationWithOrder extends Reservation {
+    order: Order | null;
+}
+
 export default function CheckoutPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -72,7 +95,7 @@ export default function CheckoutPage() {
 
     const reservationId = searchParams.get('reservationId');
 
-    const [reservation, setReservation] = useState<Reservation | null>(null);
+    const [reservation, setReservation] = useState<ReservationWithOrder | null>(null);
     const [order, setOrder] = useState<Order | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isCreatingOrder, setIsCreatingOrder] = useState(false);
@@ -86,13 +109,29 @@ export default function CheckoutPage() {
         }
     }, [authLoading, isAuthenticated, router]);
 
-    // Fetch reservation data
+    // Fetch reservation data on page load
     useEffect(() => {
         if (!reservationId || !isAuthenticated) return;
 
-        // TODO: Cần endpoint GET /reservations/:id
-        // Hiện tại chỉ set dummy data hoặc lưu từ cart page
-        setIsLoading(false);
+        const fetchReservation = async () => {
+            try {
+                const response = await api.get<ReservationWithOrder>(
+                    API_ENDPOINTS.RESERVATION_DETAIL(Number(reservationId))
+                );
+                setReservation(response.data);
+                // If reservation already has an order, set it
+                if (response.data.order) {
+                    setOrder(response.data.order);
+                }
+            } catch (err: any) {
+                const serverMessage = err.response?.data?.message;
+                setError(serverMessage || 'Không thể tải thông tin giữ hàng');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchReservation();
     }, [reservationId, isAuthenticated]);
 
     // Subscribe realtime events
@@ -135,6 +174,8 @@ export default function CheckoutPage() {
             });
 
             setOrder(response.data);
+            // Update reservation status locally
+            setReservation((prev) => prev ? { ...prev, status: 'COMPLETED' as ReservationStatus, order: response.data } : null);
         } catch (err: any) {
             const serverMessage = err.response?.data?.message;
             setError(serverMessage || 'Không thể tạo đơn hàng');
@@ -179,6 +220,11 @@ export default function CheckoutPage() {
         );
     }
 
+    // Helper: Check if reservation can create order
+    const canCreateOrder = reservation?.status === 'ACTIVE' && !order;
+    const reservationExpired = reservation?.status === 'EXPIRED';
+    const reservationCancelled = reservation?.status === 'CANCELLED';
+
     return (
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">
@@ -201,13 +247,54 @@ export default function CheckoutPage() {
                     </div>
                     <div className="flex justify-between items-center">
                         <span className="text-gray-500">Trạng thái:</span>
-                        <Badge variant="warning">Đang giữ</Badge>
+                        {reservation ? (
+                            <div className="flex items-center gap-2">
+                                <ReservationStatusBadge status={reservation.status} />
+                                {reservation.status === 'ACTIVE' && !order && (
+                                    <span className="text-sm font-mono text-orange-600 flex items-center gap-1">
+                                        (Hết hạn sau:
+                                        <CountdownTimer
+                                            deadline={reservation.expiresAt.toString()}
+                                            onExpire={() => setReservation(prev => prev ? { ...prev, status: 'EXPIRED' as ReservationStatus } : null)}
+                                        />)
+                                    </span>
+                                )}
+                            </div>
+                        ) : (
+                            <Badge variant="default">Đang tải...</Badge>
+                        )}
                     </div>
+                    {reservation?.items && reservation.items.length > 0 && (
+                        <div className="pt-2 border-t mt-2">
+                            <span className="text-gray-500 block mb-2">Sản phẩm:</span>
+                            {reservation.items.map((item) => (
+                                <div key={item.id} className="flex justify-between text-xs py-1">
+                                    <span>{item.product?.name || `Product #${item.productId}`}</span>
+                                    <span className="text-gray-400">x{item.quantity}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Order Section */}
-            {!order ? (
+            {/* Show message if reservation is expired or cancelled */}
+            {(reservationExpired || reservationCancelled) && !order && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+                    <div className="text-center py-4">
+                        <div className="text-4xl mb-2">{reservationExpired ? '⏰' : '❌'}</div>
+                        <p className="text-gray-500 font-semibold">
+                            {reservationExpired ? 'Giữ hàng đã hết hạn' : 'Giữ hàng đã bị hủy'}
+                        </p>
+                        <Button variant="secondary" className="mt-4" onClick={() => router.push('/')}>
+                            Về trang chủ
+                        </Button>
+                    </div>
+                </div>
+            )}
+
+            {/* Order Section - Only show create button if reservation is ACTIVE and no order exists */}
+            {canCreateOrder && (
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                     <h2 className="text-lg font-semibold mb-4">Tạo đơn hàng</h2>
                     <p className="text-sm text-gray-500 mb-4">
@@ -222,7 +309,10 @@ export default function CheckoutPage() {
                         Tạo đơn hàng
                     </Button>
                 </div>
-            ) : (
+            )}
+
+            {/* Order Section - Show if order exists */}
+            {order && (
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-lg font-semibold">Đơn hàng #{order.id}</h2>
@@ -241,7 +331,7 @@ export default function CheckoutPage() {
                             <div className="flex justify-between items-center">
                                 <span className="text-gray-500">Thời gian còn lại:</span>
                                 <CountdownTimer
-                                    deadline={new Date(Date.now() + 5 * 60 * 1000).toISOString()}
+                                    deadline={new Date(new Date(order.createdAt).getTime() + 5 * 60 * 1000).toISOString()}
                                     onExpire={() => setOrder((prev) => prev ? { ...prev, status: 'EXPIRED' as OrderStatus } : null)}
                                 />
                             </div>
@@ -271,7 +361,6 @@ export default function CheckoutPage() {
 
                     {order.status === 'EXPIRED' && (
                         <div className="text-center py-4">
-                            <div className="text-4xl mb-2">⏰</div>
                             <p className="text-red-500 font-semibold">Đơn hàng đã hết hạn thanh toán</p>
                             <Button variant="secondary" className="mt-4" onClick={() => router.push('/')}>
                                 Về trang chủ

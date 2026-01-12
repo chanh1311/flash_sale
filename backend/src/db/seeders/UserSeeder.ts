@@ -21,6 +21,18 @@ export class UserSeeder {
                 name: "Test User",
                 password: password,
                 role: UserRole.USER,
+            },
+            {
+                email: "user2@example.com",
+                name: "Test User",
+                password: password,
+                role: UserRole.USER,
+            },
+            {
+                email: "user3@example.com",
+                name: "Test User",
+                password: password,
+                role: UserRole.USER,
             }
         ];
 

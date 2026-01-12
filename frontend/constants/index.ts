@@ -21,6 +21,7 @@ export const API_ENDPOINTS = {
 
     // Reservations
     RESERVATIONS: '/reservations',
+    RESERVATION_DETAIL: (id: number) => `/reservations/${id}`,
 
     // Orders
     ORDERS: '/orders',

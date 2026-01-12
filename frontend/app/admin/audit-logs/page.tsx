@@ -51,12 +51,12 @@ export default function AdminAuditLogsPage() {
                     Audit Logs (Top 50)
                 </h1>
                 <Button variant="outline" onClick={fetchLogs}>
-                    Refresh
+                    Làm mới
                 </Button>
             </div>
 
             {logs.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">Chưa có audit log nào</div>
+                <div className="text-center py-12 text-gray-500">Chưa có nhật ký nào</div>
             ) : (
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
                     <table className="w-full">
@@ -66,10 +66,10 @@ export default function AdminAuditLogsPage() {
                                     Thời gian
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                    Action
+                                    Hành động
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                    Entity
+                                    Tài nguyên
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                     Người thực hiện

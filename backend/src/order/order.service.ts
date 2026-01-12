@@ -85,7 +85,7 @@ export class OrderService {
             auditLog.resourceId = savedOrder.id.toString();
             auditLog.userId = userId;
             auditLog.payload = { reservationId, totalAmount, idempotencyKey };
-            auditLog.note = 'Order created from reservation (idempotent)';
+            auditLog.note = 'Tạo đơn hàng từ giữ chỗ (idempotent)';
 
             await manager.save(AuditLog, auditLog);
 
@@ -177,7 +177,7 @@ export class OrderService {
             auditLog.resourceId = savedOrder.id.toString();
             auditLog.userId = userId;
             auditLog.payload = { paymentIdempotencyKey, reservationId: order.reservationId };
-            auditLog.note = 'Order paid, stock moved from reserved to sold (idempotent)';
+            auditLog.note = 'Đơn hàng đã thanh toán, chuyển tồn kho từ giữ chỗ sang đã bán (idempotent)';
 
             await manager.save(AuditLog, auditLog);
 

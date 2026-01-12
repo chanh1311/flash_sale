@@ -46,6 +46,7 @@ export function Header() {
                     <div className="hidden md:flex items-center space-x-4">
                         <NavLink href="/">Sản phẩm</NavLink>
                         <NavLink href="/cart">Giỏ hàng</NavLink>
+                        <NavLink href="/reservations">Đơn hàng của tôi</NavLink>
                         <NavLink href="/admin">Admin</NavLink>
                     </div>
 
@@ -58,7 +59,7 @@ export function Header() {
                                 <span className="text-sm text-gray-700 dark:text-gray-300">
                                     Xin chào, <strong>{user?.email}</strong>
                                 </span>
-                                <Button variant="ghost" size="sm" onClick={logout}>
+                                <Button variant="outline" size="sm" onClick={logout}>
                                     Đăng xuất
                                 </Button>
                             </>

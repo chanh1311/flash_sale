@@ -30,6 +30,6 @@ export class Order {
     @Column({ unique: true, nullable: true })
     idempotencyKey?: string; // Key để check idempotent khi tạo order
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamptz' })
     createdAt: Date;
 }

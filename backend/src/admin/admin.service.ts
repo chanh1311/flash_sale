@@ -34,7 +34,7 @@ export class AdminService {
         const where = status ? { status } : {};
         return this.reservationRepository.find({
             where,
-            relations: ['items'],
+            relations: ['items', 'items.product'],
             order: { createdAt: 'DESC' }
         });
     }

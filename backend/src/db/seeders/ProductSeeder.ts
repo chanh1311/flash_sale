@@ -11,7 +11,7 @@ export class ProductSeeder {
         for (let i = 1; i <= 10; i++) {
             products.push({
                 name: `iPhone 16 Pro Max ${i}`,
-                price: 1000 + i * 10,
+                price: 1000000 * i,
                 totalStock: 100,
                 availableStock: 100,
                 reservedStock: 0,

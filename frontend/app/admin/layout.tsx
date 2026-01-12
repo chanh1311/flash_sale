@@ -106,7 +106,7 @@ export default function AdminLayout({
                                 )}
                             />
                             <span className="text-gray-500">
-                                {isConnected ? 'Realtime connected' : 'Disconnected'}
+                                {isConnected ? 'Connected' : 'Disconnected'}
                             </span>
                         </div>
 

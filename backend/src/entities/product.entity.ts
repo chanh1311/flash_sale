@@ -23,9 +23,9 @@ export class Product {
     @Column({ default: 0 })
     soldStock: number; // Đã thanh toán thành công
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamptz' })
     createdAt: Date;
 
-    @UpdateDateColumn()
+    @UpdateDateColumn({ type: 'timestamptz' })
     updatedAt: Date;
 }

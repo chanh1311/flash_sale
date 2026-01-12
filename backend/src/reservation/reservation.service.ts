@@ -1,9 +1,11 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { DataSource, Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { Product } from '../entities/product.entity';
 import { Reservation, ReservationStatus } from '../entities/reservation.entity';
 import { ReservationItem } from '../entities/reservation-item.entity';
+import { Order } from '../entities/order.entity';
 import { AuditLog } from '../entities/audit-log.entity';
 import { EventsGateway } from '../gateway/events.gateway';
 
@@ -81,7 +83,7 @@ export class ReservationService {
             auditLog.resourceId = savedReservation.id.toString();
             auditLog.userId = userId;
             auditLog.payload = { items: dto.items, idempotencyKey };
-            auditLog.note = 'Stock locked via Pessimistic Lock';
+            auditLog.note = 'Khóa tồn kho bằng Pessimistic Lock';
 
             await manager.save(AuditLog, auditLog);
 
@@ -109,6 +111,63 @@ export class ReservationService {
         }
 
         return result.reservation;
+    }
+
+    /**
+     * Lấy chi tiết reservation với items, products, và order nếu có
+     */
+    async getReservationDetail(userId: number, reservationId: number) {
+        const reservation = await this.dataSource.getRepository(Reservation).findOne({
+            where: { id: reservationId },
+            relations: ['items', 'items.product'],
+        });
+
+        if (!reservation) {
+            throw new NotFoundException(`Reservation #${reservationId} not found`);
+        }
+
+        // Validate ownership
+        if (reservation.userId !== userId) {
+            throw new ForbiddenException('You do not own this reservation');
+        }
+
+        // Check if order exists for this reservation
+        const order = await this.dataSource.getRepository(Order).findOne({
+            where: { reservationId: reservationId },
+        });
+
+        return {
+            ...reservation,
+            order: order || null,
+        };
+    }
+
+    /**
+     * Lấy danh sách reservation của user
+     */
+    async getUserReservations(userId: number) {
+        // Lấy tất cả reservation của user
+        const reservations = await this.dataSource.getRepository(Reservation).find({
+            where: { userId },
+            relations: ['items', 'items.product'],
+            order: { createdAt: 'DESC' },
+        });
+
+        // Lấy tất cả orders của user để map vào reservation
+        const orders = await this.dataSource.getRepository(Order).find({
+            where: { userId },
+        });
+
+        // Map order vào reservation tương ứng
+        return reservations.map(res => {
+            const order = orders.find(o => o.reservationId === res.id);
+            // Nếu đã có order, status của reservation coi như đã complete (dù DB có thể chưa update kịp)
+            // Hoặc đơn giản là trả về kèm order info để frontend xử lý
+            return {
+                ...res,
+                order: order || null
+            };
+        });
     }
 }
 

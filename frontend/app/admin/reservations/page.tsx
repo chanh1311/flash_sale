@@ -43,7 +43,7 @@ export default function AdminReservationsPage() {
             const response = await api.get<Reservation[]>(endpoint);
             setReservations(response.data);
         } catch (err: any) {
-            setError(err.response?.data?.message || 'Không thể tải danh sách reservations');
+            setError(err.response?.data?.message || 'Không thể tải danh sách giữ hàng');
         } finally {
             setIsLoading(false);
         }
@@ -74,7 +74,7 @@ export default function AdminReservationsPage() {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Reservations ({reservations.length})
+                    Quản lý Giữ hàng ({reservations.length})
                 </h1>
 
                 <div className="flex items-center gap-4">
@@ -91,30 +91,28 @@ export default function AdminReservationsPage() {
                         ))}
                     </select>
 
-                    <Button variant="outline" onClick={fetchReservations}>
-                        Refresh
-                    </Button>
+
                 </div>
             </div>
 
             {reservations.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">Không có reservation nào</div>
+                <div className="text-center py-12 text-gray-500">Không có đơn giữ hàng nào</div>
             ) : (
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
                     <table className="w-full">
                         <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
                             <tr>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                    ID
+                                    Mã ID
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                    User ID
+                                    Người dùng
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                    Items
+                                    Sản phẩm
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                    Status
+                                    Trạng thái
                                 </th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                     Hết hạn
@@ -130,7 +128,14 @@ export default function AdminReservationsPage() {
                                     <td className="px-4 py-3 text-sm font-medium">#{reservation.id}</td>
                                     <td className="px-4 py-3 text-sm text-gray-500">{reservation.userId}</td>
                                     <td className="px-4 py-3 text-sm text-gray-500">
-                                        {reservation.items?.length || 0} items
+                                        <div className="flex flex-col gap-1">
+                                            {reservation.items?.map((item) => (
+                                                <div key={item.id} className="text-xs">
+                                                    <span className="font-medium">{item.product?.name || `Sản phẩm #${item.productId}`}</span>
+                                                    <span className="text-gray-400 ml-1">x{item.quantity}</span>
+                                                </div>
+                                            )) || 'Không có sản phẩm'}
+                                        </div>
                                     </td>
                                     <td className="px-4 py-3">
                                         <ReservationStatusBadge status={reservation.status} />

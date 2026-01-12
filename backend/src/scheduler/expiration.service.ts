@@ -70,7 +70,7 @@ export class ExpirationService {
                 auditLog.resourceId = reservation.id.toString();
                 auditLog.userId = reservation.userId;
                 auditLog.payload = { items: reservation.items.map(i => ({ productId: i.productId, qty: i.quantity })) };
-                auditLog.note = 'Reservation expired after 10 minutes TTL, stock released';
+                auditLog.note = 'Hết hạn giữ chỗ sau 10 phút TTL, đã trả lại tồn kho';
                 await manager.save(AuditLog, auditLog);
 
                 expiredData.push({ reservationId: reservation.id, products: updatedProducts });
@@ -153,7 +153,7 @@ export class ExpirationService {
                 auditLog.resourceId = order.id.toString();
                 auditLog.userId = order.userId;
                 auditLog.payload = { reservationId: order.reservationId };
-                auditLog.note = 'Order expired after 5 minutes payment TTL, stock released';
+                auditLog.note = 'Đơn hàng hết hạn thanh toán sau 5 phút TTL, đã trả lại tồn kho';
                 await manager.save(AuditLog, auditLog);
 
                 expiredData.push({ orderId: order.id, products: updatedProducts });
